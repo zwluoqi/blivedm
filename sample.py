@@ -29,22 +29,24 @@ app = Flask(__name__)
 message_queue = queue.Queue()
 
 
-def addMessage(command,sender,message):
+def addMessage(order,command,sender,message):
     #     # 模拟发送者和消息内容
     # sender = "Alice"
     # message = "Hello, world!"
     # print("addMessage")
 
     # 获取当前时间
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    date_time = datetime.now()
+    current_time = date_time.strftime("%Y-%m-%d %H:%M:%S")
 
     # 构建包含发送者和发送时间字段的字典
     message_dict = {
         "command":command,
         "sender": sender,
         "message": message,
-        "send_time": current_time
-        "datetime": datetime.now()
+        "send_time": current_time,
+        "date_time": date_time.toordinal(),
+        "order":order
     }
 
     # 将字典转换为JSON字符串
@@ -64,9 +66,12 @@ def popMessage():
 
 # 直播间ID的取值看直播间URL
 TEST_ROOM_IDS = [
-    23907710,
-    23922938,
-    23056225,
+    26785839,
+    26794477,
+    25902776,
+    3101389,
+    27815863,
+    26668092,
 ]
 
 
@@ -130,20 +135,20 @@ class MyHandler(blivedm.BaseHandler):
         print(f'[{client.room_id}] 当前人气值：{message.popularity}')
 
     async def _on_danmaku(self, client: blivedm.BLiveClient, message: blivedm.DanmakuMessage):
-        addMessage("message",message.uname,message.msg)
+        addMessage(10,"message",message.uname,message.msg)
         print(f'[{client.room_id}] {message.uname}：{message.msg}')
 
     async def _on_gift(self, client: blivedm.BLiveClient, message: blivedm.GiftMessage):
-        addMessage("gift_send",message.uname,message.gift_name)
+        addMessage(2,"gift_send",message.uname,message.gift_name)
         print(f'[{client.room_id}] {message.uname} 赠送{message.gift_name}x{message.num}'
               f' （{message.coin_type}瓜子x{message.total_coin}）')
 
     async def _on_buy_guard(self, client: blivedm.BLiveClient, message: blivedm.GuardBuyMessage):
-        addMessage("gift_buy",message.uname,message.gift_name)
+        addMessage(1,"gift_buy",message.uname,message.gift_name)
         print(f'[{client.room_id}] {message.username} 购买{message.gift_name}')
 
     async def _on_super_chat(self, client: blivedm.BLiveClient, message: blivedm.SuperChatMessage):
-        addMessage("super_message",message.uname,message.message)
+        addMessage(5,"super_message",message.uname,message.message)
         print(f'[{client.room_id}] 醒目留言 ¥{message.price} {message.uname}：{message.message}')
 
 
@@ -158,7 +163,8 @@ def forward_request_get():
     
     # 弹出并封装消息
     messages = []
-    while not message_queue.empty():
+    count = 0
+    while not message_queue.empty() and count<10:
         message = message_queue.get()
         messages.append(message)
     
