@@ -44,6 +44,7 @@ def addMessage(command,sender,message):
         "sender": sender,
         "message": message,
         "send_time": current_time
+        "datetime": datetime.now()
     }
 
     # 将字典转换为JSON字符串
@@ -65,6 +66,7 @@ def popMessage():
 TEST_ROOM_IDS = [
     23907710,
     23922938,
+    23056225,
 ]
 
 
@@ -159,12 +161,16 @@ def forward_request_get():
     while not message_queue.empty():
         message = message_queue.get()
         messages.append(message)
+    
+    blivedm_dict = {
+        "messages":messages,
+    }
 
     # 将消息封装成JSON数组
-    json_array = json.dumps(messages)
+    json_blivedm = json.dumps(blivedm_dict)
     # 打印JSON数组
     # print(json_array)
-    return json_array
+    return json_blivedm
 
 
 @app.route('/', methods=['POST'])
