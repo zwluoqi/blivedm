@@ -1,21 +1,75 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import random
-
 import blivedm
+
+
+import requests
+import argparse
+from flask import Flask, request, jsonify
+import logging
+import json
+import sys
+
+import json
+from datetime import datetime
+import queue
+import argparse
+import threading
+
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+app = Flask(__name__)
+
+
+
+
+
+
+# 创建一个队列
+message_queue = queue.Queue()
+
+
+def addMessage(command,sender,message):
+    #     # 模拟发送者和消息内容
+    # sender = "Alice"
+    # message = "Hello, world!"
+    # print("addMessage")
+
+    # 获取当前时间
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 构建包含发送者和发送时间字段的字典
+    message_dict = {
+        "command":command,
+        "sender": sender,
+        "message": message,
+        "send_time": current_time
+    }
+
+    # 将字典转换为JSON字符串
+    # message_json = json.dumps(message_dict)
+    # print(message_json)
+
+    # 将JSON字符串添加到队列中
+    message_queue.put(message_dict)
+
+def popMessage():
+    # 从队列中获取消息
+    received_dict  = message_queue.get()
+    return received_dict
+
+
+
 
 # 直播间ID的取值看直播间URL
 TEST_ROOM_IDS = [
-    12235923,
-    14327465,
-    21396545,
-    21449083,
-    23105590,
+    23907710,
+    23922938,
 ]
 
 
 async def main():
-    await run_single_client()
+    # await run_single_client()
     await run_multi_clients()
 
 
@@ -74,18 +128,79 @@ class MyHandler(blivedm.BaseHandler):
         print(f'[{client.room_id}] 当前人气值：{message.popularity}')
 
     async def _on_danmaku(self, client: blivedm.BLiveClient, message: blivedm.DanmakuMessage):
+        addMessage("message",message.uname,message.msg)
         print(f'[{client.room_id}] {message.uname}：{message.msg}')
 
     async def _on_gift(self, client: blivedm.BLiveClient, message: blivedm.GiftMessage):
+        addMessage("gift_send",message.uname,message.gift_name)
         print(f'[{client.room_id}] {message.uname} 赠送{message.gift_name}x{message.num}'
               f' （{message.coin_type}瓜子x{message.total_coin}）')
 
     async def _on_buy_guard(self, client: blivedm.BLiveClient, message: blivedm.GuardBuyMessage):
+        addMessage("gift_buy",message.uname,message.gift_name)
         print(f'[{client.room_id}] {message.username} 购买{message.gift_name}')
 
     async def _on_super_chat(self, client: blivedm.BLiveClient, message: blivedm.SuperChatMessage):
+        addMessage("super_message",message.uname,message.message)
         print(f'[{client.room_id}] 醒目留言 ¥{message.price} {message.uname}：{message.message}')
 
 
+
+@app.route('/', methods=['GET'])
+def forward_request_get():
+    # return "hello world"
+    # message_dict = popMessage()
+    # # 将字典转换为JSON字符串
+    # message_json = json.dumps(message_dict)
+    # return message_json
+    
+    # 弹出并封装消息
+    messages = []
+    while not message_queue.empty():
+        message = message_queue.get()
+        messages.append(message)
+
+    # 将消息封装成JSON数组
+    json_array = json.dumps(messages)
+    # 打印JSON数组
+    # print(json_array)
+    return json_array
+
+
+@app.route('/', methods=['POST'])
+def forward_request():
+    request_data = request.json
+
+    # headers = {'Content-Type': 'application/json', 'Authorization': request.headers.get('Authorization')}
+    # logging.info(request_data)
+    # response = requests.post('https://api.openai.com/v1/chat/completions', json=request_data,headers=headers)
+    # logging.info(response.json())
+    # return jsonify(response.json())
+
+
+# 启动Flask应用的函数
+def run_flask_app(args):
+    # 将命令行参数传递给app.run()方法
+    try:
+        # 将命令行参数传递给app.run()方法
+        app.run(port=args.port)
+    except KeyboardInterrupt:
+        # 执行清理操作（如果有需要）
+        pass
+    # 继续执行后续代码
+    print("后续代码运行中...")
+
+def runWeb():
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='Start a Flask server.')
+    parser.add_argument('--port', type=int, default=8000, help='Port number to use for the server.')
+    args = parser.parse_args()
+
+    # 在单独的线程中启动Flask应用，并传递args参数
+    flask_thread = threading.Thread(target=run_flask_app, args=(args,))
+    flask_thread.start()
+
+
 if __name__ == '__main__':
+    runWeb()
     asyncio.run(main())
