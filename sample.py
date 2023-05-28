@@ -67,7 +67,6 @@ def popMessage():
 # 直播间ID的取值看直播间URL
 TEST_ROOM_IDS = [
     13459394,
-    27771611,
 ]
 
 
