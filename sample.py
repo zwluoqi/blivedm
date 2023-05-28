@@ -190,7 +190,7 @@ def run_flask_app(args):
     # 将命令行参数传递给app.run()方法
     try:
         # 将命令行参数传递给app.run()方法
-        app.run(port=args.port)
+        app.run(port=args.port,host='0.0.0.0')
     except KeyboardInterrupt:
         # 执行清理操作（如果有需要）
         pass
