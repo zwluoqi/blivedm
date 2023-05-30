@@ -26,10 +26,10 @@ app = Flask(__name__)
 
 
 # 创建一个队列
-message_queue = queue.Queue()
+live_data = {}
 
 
-def addMessage(order,command,sender,message):
+def addMessage(liveId,order,command,sender,message):
     #     # 模拟发送者和消息内容
     # sender = "Alice"
     # message = "Hello, world!"
@@ -54,14 +54,20 @@ def addMessage(order,command,sender,message):
     # print(message_json)
 
     # 将JSON字符串添加到队列中
+    message_queue = live_data[liveId]
+    if message_queue == None :
+        message_queue = queue.Queue()
+        live_data[liveId] = message_queue
+
     message_queue.put(message_dict)
 
-def popMessage():
-    # 从队列中获取消息
-    received_dict  = message_queue.get()
-    return received_dict
+# def popMessage(liveId):
+#     # 从队列中获取消息
+#     received_dict  = message_queue.get()
+#     return received_dict
 
-
+def createLive(liveId):
+    run_single_client(liveId)
 
 
 # 直播间ID的取值看直播间URL
@@ -72,14 +78,14 @@ TEST_ROOM_IDS = [
 
 async def main():
     # await run_single_client()
-    await run_multi_clients()
+    # await run_multi_clients()
+    print("wait")
 
-
-async def run_single_client():
+async def run_single_client(room_id):
     """
     演示监听一个直播间
     """
-    room_id = random.choice(TEST_ROOM_IDS)
+    # room_id = random.choice(TEST_ROOM_IDS)
     # 如果SSL验证失败就把ssl设为False，B站真的有过忘续证书的情况
     client = blivedm.BLiveClient(room_id, ssl=True)
     handler = MyHandler()
@@ -88,8 +94,8 @@ async def run_single_client():
     client.start()
     try:
         # 演示5秒后停止
-        await asyncio.sleep(5)
-        client.stop()
+        # await asyncio.sleep(5)
+        # client.stop()
 
         await client.join()
     finally:
@@ -122,7 +128,7 @@ class MyHandler(blivedm.BaseHandler):
     #
     # # 入场消息回调
     async def __interact_word_callback(self, client: blivedm.BLiveClient, command: dict):
-        addMessage(3,"enter",command['data']['uname'],"")
+        addMessage(client.room_id,3,"enter",command['data']['uname'],"")
         print(f"[{client.room_id}] INTERACT_WORD: self_type={type(self).__name__}, room_id={client.room_id},"
               f" uname={command['data']['uname']}")
     _CMD_CALLBACK_DICT['INTERACT_WORD'] = __interact_word_callback  # noqa
@@ -131,20 +137,20 @@ class MyHandler(blivedm.BaseHandler):
         print(f'[{client.room_id}] 当前人气值：{message.popularity}')
 
     async def _on_danmaku(self, client: blivedm.BLiveClient, message: blivedm.DanmakuMessage):
-        addMessage(10,"message",message.uname,message.msg)
+        addMessage(client.room_id,10,"message",message.uname,message.msg)
         print(f'[{client.room_id}] {message.uname}：{message.msg}')
 
     async def _on_gift(self, client: blivedm.BLiveClient, message: blivedm.GiftMessage):
-        addMessage(2,"gift_send",message.uname,message.gift_name)
+        addMessage(client.room_id,2,"gift_send",message.uname,message.gift_name)
         print(f'[{client.room_id}] {message.uname} 赠送{message.gift_name}x{message.num}'
               f' （{message.coin_type}瓜子x{message.total_coin}）')
 
     async def _on_buy_guard(self, client: blivedm.BLiveClient, message: blivedm.GuardBuyMessage):
-        addMessage(1,"gift_buy",message.uname,message.gift_name)
+        addMessage(client.room_id,1,"gift_buy",message.uname,message.gift_name)
         print(f'[{client.room_id}] {message.username} 购买{message.gift_name}')
 
     async def _on_super_chat(self, client: blivedm.BLiveClient, message: blivedm.SuperChatMessage):
-        addMessage(5,"super_message",message.uname,message.message)
+        addMessage(client.room_id,5,"super_message",message.uname,message.message)
         print(f'[{client.room_id}] 醒目留言 ¥{message.price} {message.uname}：{message.message}')
 
 
@@ -160,9 +166,15 @@ def forward_request_get():
     # 弹出并封装消息
     messages = []
     count = 0
-    while not message_queue.empty() and count<10:
-        message = message_queue.get()
-        messages.append(message)
+    Authorization = request.headers.get('Authorization')
+    LiveId = request.headers.get('LiveId')
+    message_queue = live_data[LiveId]
+    if message_queue != None:
+        while not message_queue.empty() and count < 5:
+            message = message_queue.get()
+            messages.append(message)
+    else:
+        createLive(LiveId,Authorization)
     
     blivedm_dict = {
         "messages":messages,
