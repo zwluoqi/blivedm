@@ -34,7 +34,7 @@ def addMessage(liveId,order,command,sender,message):
     # sender = "Alice"
     # message = "Hello, world!"
     # print("addMessage")
-
+    liveId = str(liveId)
     # 获取当前时间
     date_time = datetime.now()
     current_time = date_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -49,26 +49,28 @@ def addMessage(liveId,order,command,sender,message):
         "order":order
     }
 
-    # 将字典转换为JSON字符串
-    # message_json = json.dumps(message_dict)
-    # print(message_json)
-
     # 将JSON字符串添加到队列中
-    message_queue = live_data[liveId]
+    message_queue = live_data.get(liveId)
     if message_queue == None :
         message_queue = queue.Queue()
         live_data[liveId] = message_queue
 
     message_queue.put(message_dict)
+    # 将字典转换为JSON字符串
+    # print('dump message_dict')
+    # message_json = json.dumps(message_dict)
+    # print(message_json)
+    # print('count message_queue '+str(message_queue.qsize()))
+    # message_json = json.dumps(message_queue)
+    # print(message_json)
 
-# def popMessage(liveId):
-#     # 从队列中获取消息
-#     received_dict  = message_queue.get()
-#     return received_dict
+def run_live_room(liveId):
+    asyncio.run(run_single_client(liveId))
 
-def createLive(liveId):
-    run_single_client(liveId)
-
+def createLive(liveId,Authorization):
+    live_thread = threading.Thread(target=run_live_room, args=(liveId,))
+    live_thread.start()
+     
 
 # 直播间ID的取值看直播间URL
 TEST_ROOM_IDS = [
@@ -77,9 +79,21 @@ TEST_ROOM_IDS = [
 
 
 async def main():
-    # await run_single_client()
+    # await run_single_client(13459394)
     # await run_multi_clients()
     print("wait")
+        # 无限循环
+    while True:
+        # 循环内的代码
+        # 挂起程序，等待用户输入
+        input("按下回车键继续...")
+
+# def dire_run_single_client(room_id):
+#     client = blivedm.BLiveClient(room_id, ssl=True)
+#     handler = MyHandler()
+#     client.add_handler(handler)
+
+#     client.start()
 
 async def run_single_client(room_id):
     """
@@ -168,12 +182,16 @@ def forward_request_get():
     count = 0
     Authorization = request.headers.get('Authorization')
     LiveId = request.headers.get('LiveId')
-    message_queue = live_data[LiveId]
+    message_queue = live_data.get(LiveId)
     if message_queue != None:
-        while not message_queue.empty() and count < 5:
+        while not message_queue.empty():
+            print('message_queue pop')
             message = message_queue.get()
             messages.append(message)
     else:
+        print('createLive pop')
+        message_queue = queue.Queue()
+        live_data[LiveId] = message_queue
         createLive(LiveId,Authorization)
     
     blivedm_dict = {
